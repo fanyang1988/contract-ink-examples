@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "crates/example",
+]
+exclude = [
+    "contracts/",
+]
+
+[profile.release]
+panic = "abort"
+lto = true

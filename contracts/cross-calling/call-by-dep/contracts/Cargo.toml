@@ -12,10 +12,10 @@ ink_storage = { version = "3.0.0-rc3", git = "https://github.com/paritytech/ink"
 ink_lang = { version = "3.0.0-rc3", git = "https://github.com/paritytech/ink", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "2.1", default-features = false, features = ["derive"] }
-scale-info = { version = "0.6", default-features = false, features = ["derive"], optional = true }
 
-# for calling
+
 erc20 = { version = "3.0.0-rc3", path = "../../../redspot-erc20/contracts", default-features = false, features = ["ink-as-dependency"] }
+scale-info = { version = "0.6", default-features = false, features = ["derive"], optional = true }
 
 [lib]
 name = "erc20swap"

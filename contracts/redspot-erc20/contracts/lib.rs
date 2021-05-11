@@ -43,7 +43,6 @@ mod erc20 {
         from: Option<AccountId>,
         #[ink(topic)]
         to: Option<AccountId>,
-        #[ink(topic)]
         value: Balance,
     }
 
@@ -55,12 +54,11 @@ mod erc20 {
         owner: AccountId,
         #[ink(topic)]
         spender: AccountId,
-        #[ink(topic)]
         value: Balance,
     }
 
     /// The ERC-20 error types.
-    #[derive(Debug, PartialEq, Eq, scale::Encode)]
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum Error {
         /// Returned if not enough balance to fulfill a request is available.

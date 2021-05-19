@@ -6,7 +6,7 @@ const { getContractFactory, getRandomSigner } = patract;
 
 const { api, getSigners } = network;
 
-describe('ownertest', () => {
+describe('owner-test', () => {
   after(() => {
     return api.disconnect();
   });
@@ -16,9 +16,9 @@ describe('ownertest', () => {
     const signers = await getSigners();
     const Alice = signers[0];
     const sender = await getRandomSigner(Alice, one.muln(10000));
-    const contractFactory = await getContractFactory('ownertest', sender);
+    const contractFactory = await getContractFactory('owner_test', sender);
     const contract = await contractFactory.deploy('new', true);
-    const abi = artifacts.readArtifact('ownertest');
+    const abi = artifacts.readArtifact('owner_test');
     const receiver = await getRandomSigner();
 
     return { sender, contractFactory, contract, abi, receiver, Alice, one };

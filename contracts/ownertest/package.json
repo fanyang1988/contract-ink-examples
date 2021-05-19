@@ -14,6 +14,6 @@
   },
   "scripts": {
     "build": "npx redspot compile",
-    "test": "npx redspot test"
+    "test": "npx redspot test --no-compile"
   }
 }

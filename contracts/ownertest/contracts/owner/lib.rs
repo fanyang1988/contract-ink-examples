@@ -5,9 +5,7 @@ use ink_lang as ink;
 #[ink::contract]
 mod owner {
     #[cfg(not(feature = "ink-as-dependency"))]
-    use ink_storage::{
-        lazy::Lazy,
-    };
+    use ink_storage::lazy::Lazy;
 
     /// Contract module which provides a basic access control mechanism, where
     /// there is an account (an owner) that can be granted exclusive access to
@@ -28,6 +26,21 @@ mod owner {
         new_owner: Option<AccountId>,
     }
 
+    pub trait OwnerStorage {
+        fn get_ownership(&self) -> &Option<AccountId>;
+        fn set_ownership(&mut self, owner: &Option<AccountId>);
+    }
+
+    impl OwnerStorage for Owner {
+        fn get_ownership(&self) -> &Option<AccountId> {
+            &self._owner
+        }
+
+        fn set_ownership(&mut self, owner: &Option<AccountId>) {
+            Lazy::set(&mut self._owner, *owner);
+        }
+    }
+
     impl Owner {
         /// Initializes the contract setting the owner as the initial owner.
         #[ink(constructor)]
@@ -39,11 +52,11 @@ mod owner {
                 new_owner: caller,
             });
 
-            Self { _owner: Lazy::new(caller) }
+            Self {
+                _owner: Lazy::new(caller),
+            }
         }
-    }
 
-    impl Owner {
         /// Leaves the contract without owner. It will not be possible to call
         /// `ensure_owner` functions anymore. Can only be called by the current owner.
         /// NOTE: Renouncing ownership will leave the contract without an owner,
@@ -53,11 +66,11 @@ mod owner {
             self.ensure_caller_is_owner();
 
             Self::env().emit_event(OwnershipTransferred {
-                previous_owner: *self._owner,
+                previous_owner: *self.get_ownership(),
                 new_owner: None,
             });
 
-            Lazy::set(&mut self._owner, None);
+            self.set_ownership(&None);
         }
 
         /// Transfers ownership of the contract to a new account (`newOwner`).
@@ -67,27 +80,27 @@ mod owner {
             self.ensure_caller_is_owner();
 
             Self::env().emit_event(OwnershipTransferred {
-                previous_owner: *self._owner,
+                previous_owner: *self.get_ownership(),
                 new_owner: Some(new_owner),
             });
 
-            Lazy::set(&mut self._owner, Some(new_owner));
+            self.set_ownership(&Some(new_owner));
         }
 
         /// Get Contract 's Owner
         #[ink(message)]
         pub fn get_owner(&self) -> Option<AccountId> {
-            *self._owner
+            *self.get_ownership()
         }
 
         /// Return the owner AccountId
         pub fn owner(&self) -> &Option<AccountId> {
-            &self._owner
+            self.get_ownership()
         }
 
         /// Panic if `owner` is not an owner
         pub fn ensure_owner(&self, owner: &AccountId) {
-            assert!(&self._owner.unwrap() == owner);
+            assert!(&self.get_ownership().unwrap() == owner);
         }
 
         /// Panic if caller is not an owner
@@ -97,7 +110,7 @@ mod owner {
 
         /// Panic the contract owner is not renounced,
         pub fn ensure_owner_renounce(&self) {
-            assert!(self._owner.is_none());
+            assert!(self.get_ownership().is_none());
         }
     }
 
@@ -121,7 +134,6 @@ mod owner {
 
             let mut owner_test = Owner::new();
             let default_owner = AccountId::from([0x01; 32]);
-
 
             let emitted_events = ink_env::test::recorded_events().collect::<Vec<_>>();
             assert_eq!(1, emitted_events.len());

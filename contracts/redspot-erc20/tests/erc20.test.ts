@@ -24,49 +24,18 @@ describe('ERC20', () => {
     return { sender, contractFactory, contract, abi, receiver, Alice, one };
   }
 
-  it('Assigns initial balance', async () => {
-    const { contract, sender } = await setup();
-    const result = await contract.query.balanceOf(sender.address);
-    expect(result.output).to.equal(1000);
-  });
-
-  it('Transfer adds amount to destination account', async () => {
-    const { contract, receiver } = await setup();
-    await expect(() =>
-      contract.tx.transfer(receiver.address, 7)
-    ).to.changeTokenBalance(contract, receiver, 7);
-
-    await expect(() =>
-      contract.tx.transfer(receiver.address, 7)
-    ).to.changeTokenBalances(contract, [contract.signer, receiver], [-7, 7]);
-  });
 
   it('Transfer emits event', async () => {
     const { contract, sender, receiver } = await setup();
+
+    console.log("contract ", contract.address.toHex())
+    console.log("sender", sender.address)
+    console.log("receiver", receiver.address)
+
 
     await expect(contract.tx.transfer(receiver.address, 7))
       .to.emit(contract, 'Transfer')
       .withArgs(sender.address, receiver.address, 7);
   });
 
-  it('Can not transfer above the amount', async () => {
-    const { contract, receiver } = await setup();
-
-    await expect(contract.tx.transfer(receiver.address, 1007)).to.not.emit(
-      contract,
-      'Transfer'
-    );
-  });
-
-  it('Can not transfer from empty account', async () => {
-    const { contract, Alice, one, sender } = await setup();
-
-    const emptyAccount = await getRandomSigner(Alice, one.muln(10000));
-
-    await expect(
-      contract.tx.transfer(sender.address, 7, {
-        signer: emptyAccount
-      })
-    ).to.not.emit(contract, 'Transfer');
-  });
 });

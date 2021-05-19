@@ -12,3 +12,5 @@ Cargo.lock
 **/artifacts/
 **/node_modules/
 **/target/
+
+.vscode

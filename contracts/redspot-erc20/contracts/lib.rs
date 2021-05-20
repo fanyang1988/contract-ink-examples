@@ -14,6 +14,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod erc20_basic;
+
 use ink_lang as ink;
 
 #[ink::contract]
@@ -22,6 +24,13 @@ pub mod erc20 {
     use ink_storage::{
         collections::HashMap as StorageHashMap,
         lazy::Lazy,
+    };
+    
+    use super::erc20_basic::{
+        Result,
+        Erc20EnvAccess,
+        Erc20Storage,
+        Erc20Impl
     };
 
     /// A simple ERC-20 contract.
@@ -57,43 +66,87 @@ pub mod erc20 {
         value: Balance,
     }
 
-    /// The ERC-20 error types.
-    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
-    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-    pub enum Error {
-        /// Returned if not enough balance to fulfill a request is available.
-        InsufficientBalance,
-        /// Returned if not enough allowance to fulfill a request is available.
-        InsufficientAllowance,
+    use ::ink_lang::EmitEvent;
+    use ::ink_lang::Env;
+
+    impl Erc20EnvAccess for Erc20 {
+        type AccountId = AccountId;
+        type Balance = Balance;
+
+        fn caller(&self) -> AccountId {
+            self.env().caller()
+        }
+
+        fn emit_event_transfer(
+            &mut self,
+            from: Option<AccountId>,
+            to: Option<AccountId>,
+            value: Balance,
+        ) {
+            self.env().emit_event(Transfer { from, to, value });
+        }
+
+        fn emit_event_approval(
+            &mut self,
+            owner: AccountId,
+            spender: AccountId,
+            value: Balance,
+        ) {
+            self.env().emit_event(Approval {
+                owner,
+                spender,
+                value,
+            });
+        }
     }
 
-    /// The ERC-20 result type.
-    pub type Result<T> = core::result::Result<T, Error>;
+    impl Erc20Storage for Erc20 {
+        fn get_balance(&self, owner: AccountId) -> Balance {
+            self.balances.get(&owner).copied().unwrap_or(0)
+        }
+
+        fn get_allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
+            self.allowances.get(&(owner, spender)).copied().unwrap_or(0)
+        }
+
+        fn get_total_supply(&self) -> Balance {
+            *self.total_supply
+        }
+
+        fn set_total_supply(&mut self, total_supply: Balance) {
+            Lazy::set(&mut self.total_supply, total_supply);
+        }
+
+        fn balance_insert(&mut self, owner: AccountId, value: Balance) {
+            self.balances.insert(owner, value);
+        }
+
+        fn allowance_insert(
+            &mut self,
+            owner_spender: (AccountId, AccountId),
+            value: Balance,
+        ) {
+            self.allowances.insert(owner_spender, value);
+        }
+    }
 
     impl Erc20 {
         /// Creates a new ERC-20 contract with the specified initial supply.
         #[ink(constructor)]
         pub fn new(initial_supply: Balance) -> Self {
-            let caller = Self::env().caller();
-            let mut balances = StorageHashMap::new();
-            balances.insert(caller, initial_supply);
-            let instance = Self {
-                total_supply: Lazy::new(initial_supply),
-                balances,
+            let mut instance = Self {
+                total_supply: Lazy::default(),
+                balances: StorageHashMap::new(),
                 allowances: StorageHashMap::new(),
             };
-            Self::env().emit_event(Transfer {
-                from: None,
-                to: Some(caller),
-                value: initial_supply,
-            });
+            instance.new_impl(initial_supply);
             instance
         }
 
         /// Returns the total token supply.
         #[ink(message)]
         pub fn total_supply(&self) -> Balance {
-            *self.total_supply
+            self.get_total_supply()
         }
 
         /// Returns the account balance for the specified `owner`.
@@ -101,7 +154,7 @@ pub mod erc20 {
         /// Returns `0` if the account is non-existent.
         #[ink(message)]
         pub fn balance_of(&self, owner: AccountId) -> Balance {
-            self.balances.get(&owner).copied().unwrap_or(0)
+            self.get_balance(owner)
         }
 
         /// Returns the amount which `spender` is still allowed to withdraw from `owner`.
@@ -109,7 +162,7 @@ pub mod erc20 {
         /// Returns `0` if no allowance has been set `0`.
         #[ink(message)]
         pub fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
-            self.allowances.get(&(owner, spender)).copied().unwrap_or(0)
+            self.get_allowance(owner, spender)
         }
 
         /// Transfers `value` amount of tokens from the caller's account to account `to`.
@@ -122,8 +175,7 @@ pub mod erc20 {
         /// the caller's account balance.
         #[ink(message)]
         pub fn transfer(&mut self, to: AccountId, value: Balance) -> Result<()> {
-            let from = self.env().caller();
-            self.transfer_from_to(from, to, value)
+            self.transfer_impl(to, value)
         }
 
         /// Allows `spender` to withdraw from the caller's account multiple times, up to
@@ -134,14 +186,7 @@ pub mod erc20 {
         /// An `Approval` event is emitted.
         #[ink(message)]
         pub fn approve(&mut self, spender: AccountId, value: Balance) -> Result<()> {
-            let owner = self.env().caller();
-            self.allowances.insert((owner, spender), value);
-            self.env().emit_event(Approval {
-                owner,
-                spender,
-                value,
-            });
-            Ok(())
+            self.approve_impl(spender, value)
         }
 
         /// Transfers `value` tokens on the behalf of `from` to the account `to`.
@@ -165,43 +210,7 @@ pub mod erc20 {
             to: AccountId,
             value: Balance,
         ) -> Result<()> {
-            let caller = self.env().caller();
-            let allowance = self.allowance(from, caller);
-            if allowance < value {
-                return Err(Error::InsufficientAllowance)
-            }
-            self.transfer_from_to(from, to, value)?;
-            self.allowances.insert((from, caller), allowance - value);
-            Ok(())
-        }
-
-        /// Transfers `value` amount of tokens from the caller's account to account `to`.
-        ///
-        /// On success a `Transfer` event is emitted.
-        ///
-        /// # Errors
-        ///
-        /// Returns `InsufficientBalance` error if there are not enough tokens on
-        /// the caller's account balance.
-        fn transfer_from_to(
-            &mut self,
-            from: AccountId,
-            to: AccountId,
-            value: Balance,
-        ) -> Result<()> {
-            let from_balance = self.balance_of(from);
-            if from_balance < value {
-                return Err(Error::InsufficientBalance)
-            }
-            self.balances.insert(from, from_balance - value);
-            let to_balance = self.balance_of(to);
-            self.balances.insert(to, to_balance + value);
-            self.env().emit_event(Transfer {
-                from: Some(from),
-                to: Some(to),
-                value,
-            });
-            Ok(())
+            self.transfer_from_impl(from, to, value)
         }
     }
 
@@ -217,6 +226,10 @@ pub mod erc20 {
                 HashOutput,
             },
             Clear,
+        };
+
+        use crate::erc20_basic::{
+            Error
         };
 
         type Event = <Erc20 as ::ink_lang::BaseEvent>::Type;

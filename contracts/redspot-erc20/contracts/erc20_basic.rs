@@ -191,8 +191,30 @@ pub enum Error {
 /// The ERC-20 result type.
 pub type Result<T> = core::result::Result<T, Error>;
 
-pub trait Erc20EnvAccess {
-    type AccountId: 'static + scale::Codec + Copy + Clone + PartialEq + Eq + Ord;
+use ::ink_lang::{
+    EnvAccess
+};
+
+use ::ink_env::Environment;
+
+
+pub trait Contract{
+    type Env: 'static + Environment;
+}
+
+pub trait StaticEnvHolder<E: 'static + Environment> : Contract{
+    fn env() -> EnvAccess<'static, E>;
+}
+
+// impl<'a, E: Environment, C: ContractEnv + StaticEnv> StaticEnvHolder<'a, E> for C {
+// fn env() -> EnvAccess<'a, E> {
+// <Self as StaticEnv>::env()
+// }
+// }
+
+pub trait Erc20EnvAccess<E: 'static + Environment>: StaticEnvHolder<E> {
+    // type Contract: ContractEnv + StaticEnv;
+    type StaticEnv: StaticEnvHolder<E>;
     type Balance: 'static
         + scale::Codec
         + Copy
@@ -201,97 +223,97 @@ pub trait Erc20EnvAccess {
         + Eq
         + AtLeast32BitUnsigned;
 
-    fn caller(&self) -> Self::AccountId;
+    fn caller() -> E::AccountId {
+        Self::StaticEnv::env().caller()
+    }
+
     fn emit_event_transfer(
         &mut self,
-        from: Option<Self::AccountId>,
-        to: Option<Self::AccountId>,
+        from: Option<E::AccountId>,
+        to: Option<E::AccountId>,
         value: Self::Balance,
     );
+
     fn emit_event_approval(
         &mut self,
-        owner: Self::AccountId,
-        spender: Self::AccountId,
+        owner: E::AccountId,
+        spender: E::AccountId,
         value: Self::Balance,
     );
 }
 
-pub trait Erc20Storage: Erc20EnvAccess {
+pub trait Erc20Storage<E: 'static + Environment>: Erc20EnvAccess<E> {
     // get
-    fn get_balance(&self, owner: Self::AccountId) -> Self::Balance;
+    fn get_balance(&self, owner: E::AccountId) -> Self::Balance;
     fn get_total_supply(&self) -> Self::Balance;
-    fn get_allowance(
-        &self,
-        owner: Self::AccountId,
-        spender: Self::AccountId,
-    ) -> Self::Balance;
+    fn get_allowance(&self, owner: E::AccountId, spender: E::AccountId) -> Self::Balance;
 
     // set
     fn set_total_supply(&mut self, total_supply: Self::Balance);
 
-    fn balance_insert(&mut self, owner: Self::AccountId, value: Self::Balance);
+    fn balance_insert(&mut self, owner: E::AccountId, value: Self::Balance);
     fn allowance_insert(
         &mut self,
-        owner_spender: (Self::AccountId, Self::AccountId),
+        owner_spender: (E::AccountId, E::AccountId),
         value: Self::Balance,
     );
 }
 
-pub trait Erc20Impl: Erc20Storage {
+pub trait Erc20Impl<E: 'static + Environment>: Erc20Storage<E> {
     // logics
     fn new_impl(&mut self, initial_supply: Self::Balance) {
-        let caller = self.caller();
+        let caller = Self::caller();
         self.set_total_supply(initial_supply);
-        self.balance_insert(caller, initial_supply);
+        self.balance_insert(caller.clone(), initial_supply);
 
         self.emit_event_transfer(None, Some(caller), initial_supply);
     }
 
-    fn transfer_impl(&mut self, to: Self::AccountId, value: Self::Balance) -> Result<()> {
-        let from = self.caller();
+    fn transfer_impl(&mut self, to: E::AccountId, value: Self::Balance) -> Result<()> {
+        let from = Self::caller();
         self.transfer_from_to_impl(from, to, value)
     }
 
     fn approve_impl(
         &mut self,
-        spender: Self::AccountId,
+        spender: E::AccountId,
         value: Self::Balance,
     ) -> Result<()> {
-        let owner = self.caller();
-        self.allowance_insert((owner, spender), value);
+        let owner = Self::caller();
+        self.allowance_insert((owner.clone(), spender.clone()), value);
         self.emit_event_approval(owner, spender, value);
         Ok(())
     }
 
     fn transfer_from_impl(
         &mut self,
-        from: Self::AccountId,
-        to: Self::AccountId,
+        from: E::AccountId,
+        to: E::AccountId,
         value: Self::Balance,
     ) -> Result<()> {
-        let caller = self.caller();
-        let allowance = self.get_allowance(from, caller);
+        let caller = Self::caller();
+        let allowance = self.get_allowance(from.clone(), caller.clone());
         if allowance < value {
             return Err(Error::InsufficientAllowance)
         }
-        self.transfer_from_to_impl(from, to, value)?;
+        self.transfer_from_to_impl(from.clone(), to, value)?;
         self.allowance_insert((from, caller), allowance - value);
         Ok(())
     }
 
     fn transfer_from_to_impl(
         &mut self,
-        from: Self::AccountId,
-        to: Self::AccountId,
+        from: E::AccountId,
+        to: E::AccountId,
         value: Self::Balance,
     ) -> Result<()> {
-        let from_balance = self.get_balance(from);
+        let from_balance = self.get_balance(from.clone());
         if from_balance < value {
             return Err(Error::InsufficientBalance)
         }
-        self.balance_insert(from, from_balance - value);
-        let to_balance = self.get_balance(to);
-        self.balance_insert(to, to_balance + value);
+        self.balance_insert(from.clone(), from_balance - value);
+        let to_balance = self.get_balance(to.clone());
+        self.balance_insert(to.clone(), to_balance + value);
 
         self.emit_event_transfer(Some(from), Some(to), value);
 
@@ -299,4 +321,4 @@ pub trait Erc20Impl: Erc20Storage {
     }
 }
 
-impl<T: Erc20Storage> Erc20Impl for T {}
+impl<E: 'static + Environment, T: Erc20Storage<E>> Erc20Impl<E> for T {}

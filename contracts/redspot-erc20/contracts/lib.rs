@@ -25,14 +25,11 @@ pub mod erc20 {
         collections::HashMap as StorageHashMap,
         lazy::Lazy,
     };
-    
-    use super::erc20_basic::{
-        Result,
-        Erc20EnvAccess,
-        Erc20Storage,
-        Erc20Impl
-    };
 
+    use ink_lang::{
+        ContractEnv
+    };
+    
     /// A simple ERC-20 contract.
     #[ink(storage)]
     pub struct Erc20 {
@@ -66,16 +63,35 @@ pub mod erc20 {
         value: Balance,
     }
 
-    use ::ink_lang::EmitEvent;
-    use ::ink_lang::Env;
+    use ::ink_lang::{
+        EmitEvent,
+        Env,
+        StaticEnv,
+        EnvAccess
+    };
 
-    impl Erc20EnvAccess for Erc20 {
-        type AccountId = AccountId;
-        type Balance = Balance;
+    use super::erc20_basic::{
+        Contract,
+        StaticEnvHolder,
+        Result,
+        Erc20EnvAccess,
+        Erc20Storage,
+        Erc20Impl
+    };
 
-        fn caller(&self) -> AccountId {
-            self.env().caller()
+    impl StaticEnvHolder<<Erc20 as ContractEnv>::Env> for Erc20 {
+        fn env() -> EnvAccess<'static, <Erc20 as ContractEnv>::Env> {
+            <Self as StaticEnv>::env() 
         }
+    }
+
+    impl Contract for Erc20{
+        type Env = <Erc20 as ContractEnv>::Env;
+    }
+
+    impl Erc20EnvAccess<<Erc20 as ContractEnv>::Env> for Erc20 {
+        type StaticEnv = Erc20;
+        type Balance = Balance; 
 
         fn emit_event_transfer(
             &mut self,
@@ -100,7 +116,7 @@ pub mod erc20 {
         }
     }
 
-    impl Erc20Storage for Erc20 {
+    impl Erc20Storage<<Erc20 as ContractEnv>::Env> for Erc20 {
         fn get_balance(&self, owner: AccountId) -> Balance {
             self.balances.get(&owner).copied().unwrap_or(0)
         }

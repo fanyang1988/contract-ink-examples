@@ -14,8 +14,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod erc20_basic;
-
 use ink_lang as ink;
 
 #[ink::contract]
@@ -26,10 +24,8 @@ pub mod erc20 {
         lazy::Lazy,
     };
 
-    use ink_lang::{
-        ContractEnv
-    };
-    
+    use ink_lang::ContractEnv;
+
     /// A simple ERC-20 contract.
     #[ink(storage)]
     pub struct Erc20 {
@@ -66,33 +62,27 @@ pub mod erc20 {
     use ::ink_lang::{
         EmitEvent,
         Env,
+        EnvAccess,
         StaticEnv,
-        EnvAccess
     };
 
-    use super::erc20_basic::{
-        Contract,
-        StaticEnvHolder,
-        Result,
-        Erc20EnvAccess,
+    use ::erc20_basic::{
+        ContractWithEnv,
+        Erc20EventEmit,
+        Erc20Impl,
         Erc20Storage,
-        Erc20Impl
+        Result,
     };
 
-    impl StaticEnvHolder<<Erc20 as ContractEnv>::Env> for Erc20 {
+    impl ContractWithEnv<<Erc20 as ContractEnv>::Env> for Erc20 {
+        type Balance = Balance;
+
         fn env() -> EnvAccess<'static, <Erc20 as ContractEnv>::Env> {
-            <Self as StaticEnv>::env() 
+            <Self as StaticEnv>::env()
         }
     }
 
-    impl Contract for Erc20{
-        type Env = <Erc20 as ContractEnv>::Env;
-    }
-
-    impl Erc20EnvAccess<<Erc20 as ContractEnv>::Env> for Erc20 {
-        type StaticEnv = Erc20;
-        type Balance = Balance; 
-
+    impl Erc20EventEmit<<Erc20 as ContractEnv>::Env> for Erc20 {
         fn emit_event_transfer(
             &mut self,
             from: Option<AccountId>,
@@ -244,9 +234,7 @@ pub mod erc20 {
             Clear,
         };
 
-        use crate::erc20_basic::{
-            Error
-        };
+        use ::erc20_basic::Error;
 
         type Event = <Erc20 as ::ink_lang::BaseEvent>::Type;
 

@@ -24,7 +24,21 @@ pub mod erc20 {
         lazy::Lazy,
     };
 
-    use ink_lang::ContractEnv;
+    use ::ink_lang::{
+        EmitEvent,
+        Env,
+        EnvAccess,
+        StaticEnv,
+        ContractEnv,
+    };
+
+    use ::erc20_basic::{
+        ContractWithEnv,
+        Erc20EventEmit,
+        Erc20Impl,
+        Erc20Storage,
+        Result,
+    };
 
     /// A simple ERC-20 contract.
     #[ink(storage)]
@@ -59,21 +73,7 @@ pub mod erc20 {
         value: Balance,
     }
 
-    use ::ink_lang::{
-        EmitEvent,
-        Env,
-        EnvAccess,
-        StaticEnv,
-    };
-
-    use ::erc20_basic::{
-        ContractWithEnv,
-        Erc20EventEmit,
-        Erc20Impl,
-        Erc20Storage,
-        Result,
-    };
-
+    // TODO: Make by macro
     impl ContractWithEnv<<Erc20 as ContractEnv>::Env> for Erc20 {
         type Balance = Balance;
 
@@ -82,6 +82,7 @@ pub mod erc20 {
         }
     }
 
+    // TODO: Event in ink!
     impl Erc20EventEmit<<Erc20 as ContractEnv>::Env> for Erc20 {
         fn emit_event_transfer(
             &mut self,
@@ -106,6 +107,7 @@ pub mod erc20 {
         }
     }
 
+    // TODO: Data Module in MVC
     impl Erc20Storage<<Erc20 as ContractEnv>::Env> for Erc20 {
         fn get_balance(&self, owner: AccountId) -> Balance {
             self.balances.get(&owner).copied().unwrap_or(0)
@@ -136,6 +138,7 @@ pub mod erc20 {
         }
     }
 
+    // impl
     impl Erc20 {
         /// Creates a new ERC-20 contract with the specified initial supply.
         #[ink(constructor)]

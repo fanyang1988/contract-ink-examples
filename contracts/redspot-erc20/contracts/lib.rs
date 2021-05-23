@@ -25,11 +25,11 @@ pub mod erc20 {
     };
 
     use ::ink_lang::{
+        ContractEnv,
         EmitEvent,
         Env,
         EnvAccess,
         StaticEnv,
-        ContractEnv,
     };
 
     use ::erc20_basic::{

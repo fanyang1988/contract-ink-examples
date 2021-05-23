@@ -170,14 +170,20 @@ pub mod contract {
         }
     }
 
+    pub trait BalanceInEnv:
+        'static + scale::Codec + Copy + Clone + PartialEq + Eq + AtLeast32BitUnsigned
+    {
+    }
+
+    impl<T> BalanceInEnv for T
+    where
+        T: 'static + scale::Codec + Copy + Clone + PartialEq + Eq + AtLeast32BitUnsigned
+    {
+    }
+
     pub trait ContractWithEnv<E: 'static + Environment> {
-        type Balance: 'static
-            + scale::Codec
-            + Copy
-            + Clone
-            + PartialEq
-            + Eq
-            + AtLeast32BitUnsigned;
+        type Balance: BalanceInEnv;
+
         fn env() -> EnvAccess<'static, E>;
     }
 
@@ -192,6 +198,7 @@ pub mod contract {
 }
 
 pub use contract::{
-    ContractWithEnv,
+    BalanceInEnv,
     ContractEnvAccess,
+    ContractWithEnv,
 };

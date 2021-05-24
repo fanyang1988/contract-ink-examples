@@ -10,11 +10,6 @@ pub mod module {
         },
     };
 
-    pub trait ModuleAccess<E: Env> {
-        fn erc20(&self) -> &Data<E>;
-        fn erc20_mut(&mut self) -> &mut Data<E>;
-    }
-
     #[cfg_attr(feature = "std", derive(::ink_storage::traits::StorageLayout))]
     #[derive(Debug, SpreadLayout)]
     pub struct Data<E: Env> {
@@ -80,5 +75,4 @@ pub mod module {
 
 pub use module::{
     Data,
-    ModuleAccess,
 };

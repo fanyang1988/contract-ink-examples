@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod traits;
+mod modules;
 
 pub use traits::{
     AccountId,
@@ -12,7 +13,6 @@ pub use traits::{
 };
 
 pub mod contract {
-
     pub trait Env: 'static {
         type AccountId: super::AccountId;
         type Balance: super::Balance;
@@ -30,4 +30,8 @@ pub mod contract {
 pub use contract::{
     Env,
     EnvAccess,
+};
+
+pub use modules::{
+    Module,
 };

@@ -29,7 +29,6 @@ pub mod erc20 {
         Erc20Impl,
         Result,
         Data as Erc20Data,
-        ModuleAccess as Erc20ModuleAccess,
     };
 
     /// A simple ERC-20 contract.
@@ -61,6 +60,7 @@ pub mod erc20 {
 
 
     // TODO: Make by macro
+    use ::contract::Module;
     impl ::contract::Env for Erc20{
         type AccountId = <::ink_env::DefaultEnvironment as ::ink_env::Environment>::AccountId; 
         type Balance = <::ink_env::DefaultEnvironment as ::ink_env::Environment>::Balance; 
@@ -79,12 +79,12 @@ pub mod erc20 {
         }
     }
 
-    impl Erc20ModuleAccess<Erc20> for Erc20 {
-        fn erc20(&self) -> &Erc20Data<Erc20> {
+    impl ::contract::Module<Erc20Data<Erc20>> for Erc20 {
+        fn get_module(&self) -> &Erc20Data<Erc20> {
             &self.data_erc20
         }
 
-        fn erc20_mut(&mut self) -> &mut Erc20Data<Erc20>{
+        fn get_module_mut(&mut self) -> &mut Erc20Data<Erc20>{
             &mut self.data_erc20
         }
     }
@@ -131,7 +131,7 @@ pub mod erc20 {
         /// Returns the total token supply.
         #[ink(message)]
         pub fn total_supply(&self) -> Balance {
-            self.erc20().get_total_supply()
+            self.get_module().get_total_supply()
         }
 
         /// Returns the account balance for the specified `owner`.
@@ -139,7 +139,7 @@ pub mod erc20 {
         /// Returns `0` if the account is non-existent.
         #[ink(message)]
         pub fn balance_of(&self, owner: AccountId) -> Balance {
-            self.erc20().get_balance(owner)
+            self.get_module().get_balance(owner)
         }
 
         /// Returns the amount which `spender` is still allowed to withdraw from `owner`.
@@ -147,7 +147,7 @@ pub mod erc20 {
         /// Returns `0` if no allowance has been set `0`.
         #[ink(message)]
         pub fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
-            self.erc20().get_allowance(owner, spender)
+            self.get_module().get_allowance(owner, spender)
         }
 
         /// Transfers `value` amount of tokens from the caller's account to account `to`.

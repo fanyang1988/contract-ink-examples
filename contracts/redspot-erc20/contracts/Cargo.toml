@@ -17,6 +17,7 @@ num-traits = { version = "0.2", default-features = false, features = ["i128"] }
 
 contract = { path = "./contract", default-features = false }
 erc20_basic = { path = "./erc20_basic", default-features = false }
+owner = { path = "./owner", default-features = false }
 
 [lib]
 name = "erc20"
@@ -39,7 +40,8 @@ std = [
     "scale-info",
     "scale-info/std",
     "contract/std",
-    "erc20_basic/std"
+    "erc20_basic/std",
+    "owner/std"
 ]
 ink-as-dependency = []
 
@@ -47,4 +49,5 @@ ink-as-dependency = []
 members = [
     "contract",
     "erc20_basic",
+    "owner",
 ]

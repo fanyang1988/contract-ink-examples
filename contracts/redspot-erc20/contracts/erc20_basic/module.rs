@@ -1,85 +1,84 @@
-#![cfg_attr(not(feature = "std"), no_std)]
 pub mod module {
+    pub use ::contract::Env;
+
     #[cfg(not(feature = "ink-as-dependency"))]
     use ::ink_storage::{
         collections::HashMap as StorageHashMap,
         lazy::Lazy,
         traits::{
-            PackedLayout,
             SpreadLayout,
-            StorageLayout,
         },
     };
-    pub use ::contract::BalanceInEnv;
 
-    pub trait AccountIdInStorage:
-        'static + Ord + Clone + scale_info::TypeInfo + SpreadLayout + PackedLayout
-    {
+    pub trait ModuleAccess<E: Env> {
+        fn erc20(&self) -> &Data<E>;
+        fn erc20_mut(&mut self) -> &mut Data<E>;
     }
 
-    pub trait BalanceInStorage:
-        BalanceInEnv + From<i32> + scale_info::TypeInfo + SpreadLayout + PackedLayout
-    {
-    }
-
-    #[cfg(not(feature = "ink-as-dependency"))]
-    #[cfg_attr(feature = "std", derive(StorageLayout))]
-    #[derive(SpreadLayout)]
-    #[cfg_attr(test, derive(Debug))]
-    pub struct Erc20<AccountId, Balance>
-    where
-        AccountId: AccountIdInStorage,
-        Balance: BalanceInStorage,
-    {
+    #[cfg_attr(feature = "std", derive(::ink_storage::traits::StorageLayout))]
+    #[derive(Debug, SpreadLayout)]
+    pub struct Data<E: Env> {
         /// Total token supply.
-        total_supply: Lazy<Balance>,
+        total_supply: Lazy<E::Balance>,
         /// Mapping from owner to number of owned token.
-        balances: StorageHashMap<AccountId, Balance>,
+        balances: StorageHashMap<E::AccountId, E::Balance>,
         /// Mapping of the token amount which an account is allowed to withdraw
         /// from another account.
-        allowances: StorageHashMap<(AccountId, AccountId), Balance>,
+        allowances: StorageHashMap<(E::AccountId, E::AccountId), E::Balance>,
     }
 
-    // Erc20Storage<<Erc20 as ContractEnv>::Env> for
-    impl<AccountId, Balance> Erc20<AccountId, Balance>
-    where
-        AccountId: AccountIdInStorage,
-        Balance: BalanceInStorage,
-    {
-        fn get_balance(&self, owner: AccountId) -> Balance {
+    impl<E: Env> Data<E> {
+        pub fn new() -> Self {
+            Self {
+                total_supply: Lazy::default(),
+                balances: StorageHashMap::new(),
+                allowances: StorageHashMap::new(),
+            }
+        }
+    }
+
+    impl<E: Env> Data<E> {
+        pub fn get_balance(&self, owner: E::AccountId) -> E::Balance {
             self.balances
                 .get(&owner)
                 .copied()
-                .unwrap_or(Balance::from(0))
+                .unwrap_or(E::Balance::from(0 as u8))
         }
 
-        fn get_allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
+        pub fn get_allowance(
+            &self,
+            owner: E::AccountId,
+            spender: E::AccountId,
+        ) -> E::Balance {
             self.allowances
                 .get(&(owner, spender))
                 .copied()
-                .unwrap_or(Balance::from(0))
+                .unwrap_or(E::Balance::from(0 as u8))
         }
 
-        fn get_total_supply(&self) -> Balance {
+        pub fn get_total_supply(&self) -> E::Balance {
             *self.total_supply
         }
 
-        fn set_total_supply(&mut self, total_supply: Balance) {
+        pub fn set_total_supply(&mut self, total_supply: E::Balance) {
             Lazy::set(&mut self.total_supply, total_supply);
         }
 
-        fn balance_insert(&mut self, owner: AccountId, value: Balance) {
+        pub fn balance_insert(&mut self, owner: E::AccountId, value: E::Balance) {
             self.balances.insert(owner, value);
         }
 
-        fn allowance_insert(
+        pub fn allowance_insert(
             &mut self,
-            owner_spender: (AccountId, AccountId),
-            value: Balance,
+            owner_spender: (E::AccountId, E::AccountId),
+            value: E::Balance,
         ) {
             self.allowances.insert(owner_spender, value);
         }
     }
 }
 
-pub use module::Erc20;
+pub use module::{
+    Data,
+    ModuleAccess,
+};

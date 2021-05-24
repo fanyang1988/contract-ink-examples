@@ -18,38 +18,24 @@ use ink_lang as ink;
 
 #[ink::contract]
 pub mod erc20 {
-    #[cfg(not(feature = "ink-as-dependency"))]
-    use ink_storage::{
-        collections::HashMap as StorageHashMap,
-        lazy::Lazy,
-    };
-
     use ::ink_lang::{
-        ContractEnv,
         EmitEvent,
         Env,
-        EnvAccess,
         StaticEnv,
     };
 
     use ::erc20_basic::{
-        ContractWithEnv,
         Erc20EventEmit,
         Erc20Impl,
-        Erc20Storage,
         Result,
+        Data as Erc20Data,
+        ModuleAccess as Erc20ModuleAccess,
     };
 
     /// A simple ERC-20 contract.
     #[ink(storage)]
     pub struct Erc20 {
-        /// Total token supply.
-        total_supply: Lazy<Balance>,
-        /// Mapping from owner to number of owned token.
-        balances: StorageHashMap<AccountId, Balance>,
-        /// Mapping of the token amount which an account is allowed to withdraw
-        /// from another account.
-        allowances: StorageHashMap<(AccountId, AccountId), Balance>,
+        data_erc20: Erc20Data<Erc20>
     }
 
     /// Event emitted when a token transfer occurs.
@@ -73,17 +59,39 @@ pub mod erc20 {
         value: Balance,
     }
 
-    // TODO: Make by macro
-    impl ContractWithEnv<<Erc20 as ContractEnv>::Env> for Erc20 {
-        type Balance = Balance;
 
-        fn env() -> EnvAccess<'static, <Erc20 as ContractEnv>::Env> {
-            <Self as StaticEnv>::env()
+    // TODO: Make by macro
+    impl ::contract::Env for Erc20{
+        type AccountId = <::ink_env::DefaultEnvironment as ::ink_env::Environment>::AccountId; 
+        type Balance = <::ink_env::DefaultEnvironment as ::ink_env::Environment>::Balance; 
+        type Hash = <::ink_env::DefaultEnvironment as ::ink_env::Environment>::Hash; 
+        type Timestamp = <::ink_env::DefaultEnvironment as ::ink_env::Environment>::Timestamp; 
+        type BlockNumber = <::ink_env::DefaultEnvironment as ::ink_env::Environment>::BlockNumber; 
+    }
+    
+    impl ::contract::EnvAccess<Erc20> for Erc20 {
+        fn caller() -> <Erc20 as ::contract::Env>::AccountId{
+            Self::env().caller()
+        }
+
+        fn transferred_balance() -> <Erc20 as ::contract::Env>::Balance{
+            Self::env().transferred_balance()
         }
     }
 
+    impl Erc20ModuleAccess<Erc20> for Erc20 {
+        fn erc20(&self) -> &Erc20Data<Erc20> {
+            &self.data_erc20
+        }
+
+        fn erc20_mut(&mut self) -> &mut Erc20Data<Erc20>{
+            &mut self.data_erc20
+        }
+    }
+    // TODO: Make by macro
+
     // TODO: Event in ink!
-    impl Erc20EventEmit<<Erc20 as ContractEnv>::Env> for Erc20 {
+    impl Erc20EventEmit<Erc20> for Erc20 {
         fn emit_event_transfer(
             &mut self,
             from: Option<AccountId>,
@@ -106,37 +114,7 @@ pub mod erc20 {
             });
         }
     }
-
-    // TODO: Data Module in MVC
-    impl Erc20Storage<<Erc20 as ContractEnv>::Env> for Erc20 {
-        fn get_balance(&self, owner: AccountId) -> Balance {
-            self.balances.get(&owner).copied().unwrap_or(0)
-        }
-
-        fn get_allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
-            self.allowances.get(&(owner, spender)).copied().unwrap_or(0)
-        }
-
-        fn get_total_supply(&self) -> Balance {
-            *self.total_supply
-        }
-
-        fn set_total_supply(&mut self, total_supply: Balance) {
-            Lazy::set(&mut self.total_supply, total_supply);
-        }
-
-        fn balance_insert(&mut self, owner: AccountId, value: Balance) {
-            self.balances.insert(owner, value);
-        }
-
-        fn allowance_insert(
-            &mut self,
-            owner_spender: (AccountId, AccountId),
-            value: Balance,
-        ) {
-            self.allowances.insert(owner_spender, value);
-        }
-    }
+    // TODO: Event in ink!
 
     // impl
     impl Erc20 {
@@ -144,9 +122,7 @@ pub mod erc20 {
         #[ink(constructor)]
         pub fn new(initial_supply: Balance) -> Self {
             let mut instance = Self {
-                total_supply: Lazy::default(),
-                balances: StorageHashMap::new(),
-                allowances: StorageHashMap::new(),
+                data_erc20: Erc20Data::new()
             };
             instance.new_impl(initial_supply);
             instance
@@ -155,7 +131,7 @@ pub mod erc20 {
         /// Returns the total token supply.
         #[ink(message)]
         pub fn total_supply(&self) -> Balance {
-            self.get_total_supply()
+            self.erc20().get_total_supply()
         }
 
         /// Returns the account balance for the specified `owner`.
@@ -163,7 +139,7 @@ pub mod erc20 {
         /// Returns `0` if the account is non-existent.
         #[ink(message)]
         pub fn balance_of(&self, owner: AccountId) -> Balance {
-            self.get_balance(owner)
+            self.erc20().get_balance(owner)
         }
 
         /// Returns the amount which `spender` is still allowed to withdraw from `owner`.
@@ -171,7 +147,7 @@ pub mod erc20 {
         /// Returns `0` if no allowance has been set `0`.
         #[ink(message)]
         pub fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
-            self.get_allowance(owner, spender)
+            self.erc20().get_allowance(owner, spender)
         }
 
         /// Transfers `value` amount of tokens from the caller's account to account `to`.
